@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ASP Bubbles">
+<meta name="theme-color" content="#1e3a8a">
+<title>ASP Bubbles</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --surface: #ffffff;
+    --border: #e5e5e0;
+    --text: #1a1a1a;
+    --muted: #6b6b6b;
+    --accent: #1e3a8a;
+    --accent-soft: #dbeafe;
+    --good: #15803d;
+    --good-soft: #dcfce7;
+    --warn: #b45309;
+    --danger: #b91c1c;
+    --danger-soft: #fee2e2;
+    --radius: 10px;
+    --shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 32px 24px 80px; }
+
+  header.top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  header.top h1 { font-size: 22px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+  header.top .sub { color: var(--muted); font-size: 13px; }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .toolbar {
+    padding: 14px 16px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .toolbar > label { font-weight: 500; }
+  .toolbar .sep { width: 1px; height: 22px; background: var(--border); margin: 0 4px; }
+
+  select, input[type=file], input[type=text], button {
+    font: inherit; color: inherit;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 11px;
+    cursor: pointer;
+  }
+  input[type=text] { cursor: text; min-width: 200px; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover { filter: brightness(1.08); }
+  button.ghost:hover { background: #f0efeb; }
+
+  .muted { color: var(--muted); }
+
+  /* Summary strip */
+  .summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .summary .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+  }
+  .summary .label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .summary .value {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  h2.section {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 600;
+    margin: 28px 0 10px;
+  }
+
+  /* Employees list */
+  .emp-list {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .emp-row {
+    display: grid;
+    grid-template-columns: 1fr 110px 110px 100px;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .emp-row:last-child { border-bottom: none; }
+  .emp-row:hover { background: #faf9f6; }
+  .emp-row .name { font-weight: 500; font-size: 15px; }
+  .emp-row .balance {
+    font-size: 20px;
+    font-weight: 600;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .emp-row .delta {
+    text-align: right;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+  }
+  .emp-row .delta.pos { color: var(--good); }
+  .emp-row .delta.neg { color: var(--danger); }
+  .emp-row .action {
+    text-align: right;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .emp-row .action span {
+    background: var(--accent-soft);
+    color: var(--accent);
+    padding: 4px 10px;
+    border-radius: 99px;
+    font-weight: 500;
+  }
+
+  .emp-row.recent { background: #fffbeb; }
+
+  /* Empty state */
+  .empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+  }
+  .empty h3 { color: var(--text); margin: 0 0 8px; font-weight: 600; }
+
+  /* Modal overlay (replaces <dialog> for cross-sandbox reliability) */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 20px;
+  }
+  .overlay[hidden] { display: none; }
+  .overlay-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    width: min(620px, 100%);
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+  }
+  .overlay-card.narrow { width: min(420px, 100%); }
+
+  .overlay-card .dhead {
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .overlay-card .dhead .dname { font-weight: 600; font-size: 17px; }
+  .overlay-card .dhead .dbal {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .overlay-card .dbody { padding: 16px 22px; }
+  .overlay-card .dclose {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 20px;
+    margin-left: 12px;
+  }
+
+  .cat {
+    margin-bottom: 12px;
+  }
+  .cat .ctitle {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .rules {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  button.rule {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.1s;
+  }
+  button.rule:hover {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  button.rule .pts {
+    font-weight: 600;
+    margin-left: 6px;
+    color: var(--good);
+  }
+  button.rule .pts.neg { color: var(--danger); }
+
+  .log {
+    margin-top: 16px;
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+  .log .ltitle {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .log-entry {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    padding: 4px 0;
+    border-bottom: 1px dashed var(--border);
+  }
+  .log-entry:last-child { border-bottom: none; }
+  .log-entry .ldelta { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .log-entry .ldelta.pos { color: var(--good); }
+  .log-entry .ldelta.neg { color: var(--danger); }
+  .log-empty { color: var(--muted); font-size: 13px; font-style: italic; }
+
+  .note {
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    color: #7c2d12;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+
+  /* Hide the whole app until the employee has logged in */
+  body.pre-auth .wrap,
+  body.pre-auth .bottomnav { display: none; }
+
+  /* Tabbed views */
+  .view[hidden] { display: none; }
+
+  /* Bottom navigation bar */
+  .bottomnav {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    display: flex;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
+    z-index: 50;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .navbtn {
+    flex: 1;
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: 10px 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    font-size: 11px;
+    color: var(--muted);
+    border-radius: 0;
+  }
+  .navbtn .navicon { font-size: 18px; line-height: 1; }
+  .navbtn.active { color: var(--accent); font-weight: 600; }
+
+  /* Reward cards */
+  .reward-list { display: grid; gap: 10px; }
+  .reward {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+  .reward .rname { font-weight: 600; font-size: 15px; }
+  .reward .rdesc { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .reward .rcost {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+  .reward .rcost small { font-size: 11px; color: var(--muted); font-weight: 500; display:block; text-align:right; }
+  .reward .rright { display:flex; align-items:center; gap:12px; }
+  button.redeem {
+    background: var(--accent); color:#fff; border:none;
+    border-radius: 8px; padding: 8px 14px; font-size: 13px; font-weight: 500; cursor: pointer;
+    white-space: nowrap;
+  }
+  button.redeem:hover { filter: brightness(1.08); }
+  button.redeem:disabled { background: #d4d4d0; color: #8a8a85; cursor: not-allowed; }
+
+  /* Request / pending rows */
+  .req-row {
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+    background: var(--surface); border:1px solid var(--border); border-radius:8px;
+    padding:10px 14px; margin-bottom:8px; font-size:13px;
+  }
+  .chip {
+    font-size:11px; font-weight:600; padding:2px 8px; border-radius:99px; text-transform:uppercase; letter-spacing:.04em;
+  }
+  .chip.pending  { background:#fef9c3; color:#854d0e; }
+  .chip.approved { background: var(--good-soft); color: var(--good); }
+  .chip.denied   { background: var(--danger-soft); color: var(--danger); }
+  .req-actions button { padding:6px 12px; font-size:13px; border-radius:8px; cursor:pointer; }
+  .req-actions .approve { background: var(--good); color:#fff; border:none; margin-right:6px; }
+  .req-actions .deny { background: var(--surface); border:1px solid var(--border); }
+
+  /* Earn / rules cards */
+  .earn-cat { margin-bottom: 18px; }
+  .earn-cat .ctitle {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--muted); margin-bottom: 8px;
+  }
+  .earn-row {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+  .earn-row .ename { font-weight: 500; font-size: 14px; }
+  .earn-row .edesc { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .earn-row .eval { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--good); white-space: nowrap; }
+  .earn-row .eval.neg { color: var(--danger); }
+
+  /* leave room for the fixed bottom nav */
+  body { padding-bottom: 70px; }
+
+  /* Phone layout */
+  @media (max-width: 600px) {
+    .wrap { padding: 16px 12px 48px; }
+    header.top { margin-bottom: 16px; }
+    header.top h1 { font-size: 19px; }
+    .summary { grid-template-columns: 1fr 1fr; }
+    .emp-row {
+      grid-template-columns: 1fr auto auto;
+      gap: 10px;
+      padding: 14px 14px;
+    }
+    .emp-row .delta { display: none; }
+    .emp-row .balance { font-size: 18px; }
+    .emp-row .name { font-size: 15px; }
+    button.rule { font-size: 14px; padding: 10px 12px; }
+  }
+</style>
+</head>
+<body class="pre-auth">
+
+<!-- ===== Login gate (shown until a valid PIN is entered) ===== -->
+<div class="overlay" id="loginOverlay">
+  <div class="overlay-card narrow">
+    <div class="dhead">
+      <div class="dname">Action Spa — Bubbles</div>
+    </div>
+    <form class="dbody" id="loginForm" style="display:flex; flex-direction:column; gap:12px;">
+      <p class="muted" style="margin:0; font-size:13px;">
+        Enter your 4-digit PIN to access the app.
+      </p>
+      <input type="password" inputmode="numeric" autocomplete="off" id="loginPin"
+             placeholder="PIN" maxlength="6"
+             style="font-size:22px; padding:12px; letter-spacing:0.3em; text-align:center;">
+      <div id="loginError" style="color: var(--danger); font-size:13px; display:none;"></div>
+      <button type="submit" class="primary" style="padding:11px;">Sign in</button>
+    </form>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <h1>Action Spa — Warehouse Bubbles</h1>
+      <div class="sub">Award bubbles for picker behaviors • spreadsheet-driven</div>
+    </div>
+    <div>
+      <a href="dashboard.html" style="color: var(--muted); text-decoration: none; font-size: 13px;">→ Technician bonus dashboard</a>
+    </div>
+  </header>
+
+  <div class="note" id="statusNote">
+    Connected to Google Sheets backend. Edits in the Sheet flow into the app on refresh.
+    Awarding bubbles requires the manager PIN.
+  </div>
+
+  <section class="panel toolbar">
+    <input type="text" id="search" placeholder="Search employee…">
+    <span class="sep"></span>
+    <button class="ghost" id="refreshBtn">Refresh</button>
+    <span style="flex:1"></span>
+    <span class="muted" id="identity" style="font-size: 13px;"></span>
+    <button class="ghost" id="logoutBtn">Log out</button>
+  </section>
+
+  <!-- ===== Balances tab ===== -->
+  <div class="view" id="view-balances">
+    <section class="summary" id="summary"></section>
+    <h2 class="section">Employees</h2>
+    <div class="emp-list" id="empList">
+      <div class="empty"><h3>No data yet</h3><div>Loading…</div></div>
+    </div>
+  </div>
+
+  <!-- ===== Rewards tab ===== -->
+  <div class="view" id="view-rewards" hidden>
+    <div id="pendingSection" hidden>
+      <h2 class="section">Pending requests</h2>
+      <div id="pendingList"></div>
+    </div>
+    <h2 class="section">Rewards you can redeem</h2>
+    <div class="reward-list" id="rewardList"></div>
+    <div id="myRequestsSection" hidden>
+      <h2 class="section">Your requests</h2>
+      <div id="myRequestsList"></div>
+    </div>
+  </div>
+
+  <!-- ===== How to earn tab ===== -->
+  <div class="view" id="view-earn" hidden>
+    <h2 class="section">How to earn bubbles</h2>
+    <div id="earnList"></div>
+  </div>
+
+</div>
+
+<nav class="bottomnav">
+  <button class="navbtn active" data-view="balances">
+    <span class="navicon">★</span><span>Balances</span>
+  </button>
+  <button class="navbtn" data-view="rewards">
+    <span class="navicon">🎁</span><span>Rewards</span>
+  </button>
+  <button class="navbtn" data-view="earn">
+    <span class="navicon">＋</span><span>How to earn</span>
+  </button>
+</nav>
+
+<div class="overlay" id="award" hidden>
+  <div class="overlay-card">
+    <div class="dhead">
+      <div>
+        <div class="dname" id="aName">—</div>
+        <div class="muted" style="font-size: 12px;">Current balance</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div class="dbal" id="aBal">0</div>
+        <button class="dclose" id="aClose" aria-label="Close">&times;</button>
+      </div>
+    </div>
+    <div class="dbody">
+      <div id="aRules"></div>
+      <div class="log">
+        <div class="ltitle">Session activity</div>
+        <div id="aLog"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="redeemModal" hidden>
+  <div class="overlay-card narrow">
+    <div class="dhead">
+      <div class="dname" id="redeemTitle">Redeem reward</div>
+      <button class="dclose" id="redeemClose" aria-label="Close">&times;</button>
+    </div>
+    <div class="dbody">
+      <p id="redeemBody" style="margin:0 0 12px; font-size:14px;"></p>
+      <div id="redeemError" style="color: var(--danger); font-size:13px; display:none; margin-bottom:10px;"></div>
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button class="ghost" id="redeemCancel">Cancel</button>
+        <button class="primary" id="redeemConfirm">Request it</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+
+/* ---------- Backend bridge (Apps Script JSON API) ---------- */
+
+// PASTE YOUR APPS SCRIPT WEB-APP URL HERE (ends in /exec):
+const API_URL = "https://script.google.com/macros/s/AKfycbwD3Jch_kSZW7_z3c6weGaY74mWsowAABOrqnxFY_AGPEBmDQ7vBt0zM-LqNk47YKFX/exec";
+
+// POST a JSON action to the Apps Script backend. text/plain avoids a CORS
+// preflight (which Apps Script can't answer). Returns the parsed JSON object.
+async function apiCall(action, params) {
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(Object.assign({ action: action }, params || {})),
+  });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  return JSON.parse(await res.text());
+}
+
+// Register the service worker so the app is installable.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  });
+}
+
+/* ---------- Offline-fallback sample data (only used if the server call fails) ---------- */
+
+const SAMPLE_BALANCES = [
+  { Name: "Anthony", Balance: 555 },
+  { Name: "Jordin",  Balance: 555 },
+  { Name: "Tommy",   Balance: 530 },
+  { Name: "Derisk",  Balance: 475 },
+  { Name: "Seedien", Balance: 362 },
+  { Name: "Josh",    Balance: 356 },
+  { Name: "Angel",   Balance: 245 },
+];
+
+const SAMPLE_RULES = [
+  { Metric: "Employee of the month",                    Bubbles: 200,  Category: "Culture",      Description: "Employee of the month" },
+  { Metric: "Shipping errors <10",                      Bubbles: 25,   Category: "Quality",      Description: "Errors below 10 at the end of the month — whole team" },
+  { Metric: "100+ picks before 12 (160 Mon and Tue)",   Bubbles: 20,   Category: "Productivity", Description: "100+ picks before noon — whole team" },
+  { Metric: "Above & beyond",                           Bubbles: 20,   Category: "Culture",      Description: "Extra help / notable initiative" },
+  { Metric: "100% cut off goal met",                    Bubbles: 15,   Category: "Quality",      Description: "Meet 12:00 cut off time — whole team" },
+  { Metric: "Top picker",                               Bubbles: 10,   Category: "Productivity", Description: "Top performer daily" },
+  { Metric: "Lead huddle",                              Bubbles: 5,    Category: "Leadership",   Description: "Lead huddle / training" },
+  { Metric: "Pick over 100 lines",                      Bubbles: 5,    Category: "Productivity", Description: "Pick over 100 lines — individual" },
+  { Metric: "Being late",                               Bubbles: -10,  Category: "Culture",      Description: "Miss 8:30 huddle (can repeat)" },
+];
+
+// Embedded from bubbles_rewards_catalog.xlsx — used by the future Catalog screen.
+const SAMPLE_CATALOG = [
+  { Reward: "Coffee",         Cost: 50,  Description: "Starbucks on us" },
+  { Reward: "Gift Card $10",  Cost: 50,  Description: "Redeem for a gift card" },
+  { Reward: "Lunch on us",    Cost: 180, Description: "Lunch on us (has to be approved)" },
+];
+
+/* ---------- App state ---------- */
+
+const state = {
+  employees: [],    // [{ name, balance, baseline, recent }]
+  rules: [],        // [{ metric, bubbles, category, description }]
+  catalog: [],      // [{ reward, cost, description }]
+  log: [],          // [{ name, metric, delta, ts }]
+  myRequests: [],   // this user's redemption requests
+  pending: [],      // manager: all pending requests
+  search: "",
+  activeIdx: null,  // index of employee in dialog
+  view: "balances", // balances | rewards | earn
+  pendingRedeem: null, // reward awaiting confirm
+};
+
+function normalizeCatalog(rows) {
+  return rows.map(r => {
+    const reward = findField(r, ["Reward", "Name", "Item"]) || Object.values(r)[0];
+    const cost   = findField(r, ["Cost", "Bubbles", "Points", "Price"]) ?? Object.values(r)[1];
+    const description = findField(r, ["Description", "Notes"]) || "";
+    const n = parseFloat(String(cost).replace(/,/g, ""));
+    return {
+      reward: String(reward || "").trim(),
+      cost: isNaN(n) ? 0 : n,
+      description: String(description || "").trim(),
+    };
+  }).filter(r => r.reward);
+}
+
+/* ---------- Helpers ---------- */
+
+const $ = (id) => document.getElementById(id);
+
+function findField(obj, candidates) {
+  const keys = Object.keys(obj);
+  for (const c of candidates) {
+    const hit = keys.find(k => k.toLowerCase().trim() === c.toLowerCase());
+    if (hit) return obj[hit];
+  }
+  // fall back to first two columns
+  return undefined;
+}
+
+function normalizeBalances(rows) {
+  return rows.map(r => {
+    let name = findField(r, ["Name", "Empleado", "Employee"]);
+    let bal  = findField(r, ["Balance", "Bubbles", "Points"]);
+    if (name === undefined || bal === undefined) {
+      const vals = Object.values(r);
+      if (name === undefined) name = vals[0];
+      if (bal === undefined)  bal  = vals[1];
+    }
+    const n = parseFloat(String(bal).replace(/,/g, ""));
+    return {
+      name: String(name || "").trim(),
+      balance: isNaN(n) ? 0 : n,
+      baseline: isNaN(n) ? 0 : n,
+      recent: false,
+    };
+  }).filter(e => e.name);
+}
+
+function normalizeRules(rows) {
+  return rows.map(r => {
+    const metric = findField(r, ["Metric", "Rule", "Name"]) || Object.values(r)[0];
+    const bubbles = findField(r, ["Bubbles", "Points", "Value"]) ?? Object.values(r)[1];
+    const category = findField(r, ["Category"]) || "Other";
+    const description = findField(r, ["Description", "Notes"]) || "";
+    const n = parseFloat(String(bubbles).replace(/,/g, ""));
+    return {
+      metric: String(metric || "").trim(),
+      bubbles: isNaN(n) ? 0 : n,
+      category: String(category || "Other").trim(),
+      description: String(description || "").trim(),
+    };
+  }).filter(r => r.metric);
+}
+
+/* ---------- Rendering ---------- */
+
+function renderSummary() {
+  const el = $("summary");
+  if (!state.employees.length) { el.innerHTML = ""; return; }
+  const totalBal = state.employees.reduce((s, e) => s + e.balance, 0);
+  const totalAwarded = state.log.reduce((s, l) => s + (l.delta > 0 ? l.delta : 0), 0);
+  const totalDeducted = state.log.reduce((s, l) => s + (l.delta < 0 ? l.delta : 0), 0);
+  el.innerHTML = `
+    <div class="card">
+      <div class="label">Employees</div>
+      <div class="value">${state.employees.length}</div>
+    </div>
+    <div class="card">
+      <div class="label">Total bubbles</div>
+      <div class="value">${totalBal.toLocaleString()}</div>
+    </div>
+    <div class="card">
+      <div class="label">Awarded this session</div>
+      <div class="value" style="color: var(--good)">${totalAwarded > 0 ? "+" + totalAwarded : totalAwarded}</div>
+    </div>
+    <div class="card">
+      <div class="label">Deducted this session</div>
+      <div class="value" style="color: var(--danger)">${totalDeducted}</div>
+    </div>
+  `;
+}
+
+function renderList() {
+  const el = $("empList");
+  if (!state.employees.length) {
+    el.innerHTML = `<div class="empty">
+        <h3>No data yet</h3>
+        <div>Click <em>Load sample data</em>, or import a balances xlsx/csv.</div>
+      </div>`;
+    return;
+  }
+  const q = state.search.toLowerCase();
+  const filtered = state.employees
+    .map((e, i) => ({ e, i }))
+    .filter(({ e }) => !q || e.name.toLowerCase().includes(q));
+
+  if (!filtered.length) {
+    el.innerHTML = `<div class="empty"><h3>No matches</h3><div>Try a different search.</div></div>`;
+    return;
+  }
+
+  const isManager = session.role === "manager";
+
+  el.innerHTML = filtered.map(({ e, i }) => {
+    const delta = e.balance - e.baseline;
+    const dClass = delta > 0 ? "pos" : (delta < 0 ? "neg" : "");
+    const dStr = delta === 0 ? "—" : (delta > 0 ? `+${delta}` : `${delta}`);
+    const action = isManager
+      ? `<div class="action"><span>Award →</span></div>`
+      : `<div class="action"></div>`;
+    return `
+      <div class="emp-row ${e.recent ? "recent" : ""}" data-i="${i}" style="${isManager ? "" : "cursor:default;"}">
+        <div class="name">${e.name}</div>
+        <div class="balance">${e.balance.toLocaleString()}</div>
+        <div class="delta ${dClass}">${dStr}</div>
+        ${action}
+      </div>`;
+  }).join("");
+
+  if (isManager) {
+    el.querySelectorAll(".emp-row").forEach(row => {
+      row.addEventListener("click", () => openAward(parseInt(row.dataset.i, 10)));
+    });
+  }
+}
+
+function myBalance() {
+  const me = state.employees.find(e => e.name === session.name);
+  return me ? me.balance : 0;
+}
+
+function renderRewards() {
+  const isManager = session.role === "manager";
+
+  // --- Manager: pending approvals ---
+  const pendSec = $("pendingSection");
+  if (isManager && state.pending.length) {
+    pendSec.hidden = false;
+    $("pendingList").innerHTML = state.pending.map(p => `
+      <div class="req-row">
+        <div>
+          <strong>${escapeHtml(p.Name)}</strong> → ${escapeHtml(p.Reward)}
+          <span class="muted">(${Number(p.Cost).toLocaleString()})</span>
+        </div>
+        <div class="req-actions">
+          <button class="approve" data-row="${p._row}" data-approve="1">Approve</button>
+          <button class="deny" data-row="${p._row}" data-approve="0">Deny</button>
+        </div>
+      </div>
+    `).join("");
+    $("pendingList").querySelectorAll("button").forEach(b => {
+      b.addEventListener("click", () => resolveRequest(b.dataset.row, b.dataset.approve === "1"));
+    });
+  } else {
+    pendSec.hidden = true;
+  }
+
+  // --- Reward cards ---
+  const el = $("rewardList");
+  if (!state.catalog.length) {
+    el.innerHTML = `<div class="empty"><h3>No rewards</h3><div>Add rewards in the Rewards tab of the Sheet.</div></div>`;
+  } else {
+    const bal = myBalance();
+    el.innerHTML = state.catalog.map((r, i) => {
+      let right;
+      if (isManager) {
+        right = `<div class="rcost">${r.cost.toLocaleString()}<small>bubbles</small></div>`;
+      } else {
+        const afford = bal >= r.cost;
+        const btn = afford
+          ? `<button class="redeem" data-i="${i}">Redeem</button>`
+          : `<button class="redeem" disabled>Need ${(r.cost - bal).toLocaleString()} more</button>`;
+        right = `<div class="rright"><div class="rcost">${r.cost.toLocaleString()}<small>bubbles</small></div>${btn}</div>`;
+      }
+      return `
+        <div class="reward">
+          <div>
+            <div class="rname">${escapeHtml(r.reward)}</div>
+            <div class="rdesc">${escapeHtml(r.description)}</div>
+          </div>
+          ${right}
+        </div>`;
+    }).join("");
+    if (!isManager) {
+      el.querySelectorAll(".redeem:not([disabled])").forEach(b => {
+        b.addEventListener("click", () => openRedeem(state.catalog[parseInt(b.dataset.i, 10)]));
+      });
+    }
+  }
+
+  // --- Worker: my requests ---
+  const mySec = $("myRequestsSection");
+  if (!isManager && state.myRequests.length) {
+    mySec.hidden = false;
+    $("myRequestsList").innerHTML = state.myRequests.map(r => {
+      const status = String(r.Status || "pending").trim();
+      const chip = status.startsWith("approved") ? "approved"
+                 : status.startsWith("denied") ? "denied" : "pending";
+      return `
+        <div class="req-row">
+          <div>${escapeHtml(r.Reward)} <span class="muted">(${Number(r.Cost).toLocaleString()})</span></div>
+          <span class="chip ${chip}">${escapeHtml(status)}</span>
+        </div>`;
+    }).join("");
+  } else {
+    mySec.hidden = true;
+  }
+}
+
+function openRedeem(reward) {
+  state.pendingRedeem = reward;
+  const bal = myBalance();
+  $("redeemTitle").textContent = "Redeem " + reward.reward;
+  $("redeemBody").innerHTML =
+    `Cost: <strong>${reward.cost.toLocaleString()}</strong> bubbles.<br>` +
+    `Your balance: <strong>${bal.toLocaleString()}</strong> → ` +
+    `<strong>${(bal - reward.cost).toLocaleString()}</strong> after.<br><br>` +
+    `This sends a request to your manager for approval.`;
+  $("redeemError").style.display = "none";
+  $("redeemModal").hidden = false;
+}
+
+async function confirmRedeem() {
+  const reward = state.pendingRedeem;
+  if (!reward) return;
+  const errEl = $("redeemError");
+  errEl.style.display = "none";
+  try {
+    const res = await apiCall("request", { pin: session.pin, reward: reward.reward });
+    if (res.error) {
+      errEl.textContent = res.error;
+      errEl.style.display = "block";
+      return;
+    }
+    $("redeemModal").hidden = true;
+    state.pendingRedeem = null;
+    fetchData();
+  } catch (err) {
+    errEl.textContent = "Error: " + (err && err.message ? err.message : err);
+    errEl.style.display = "block";
+  }
+}
+
+async function resolveRequest(row, approve) {
+  try {
+    const res = await apiCall("resolve", { pin: session.pin, row: row, approve: approve });
+    if (res.error) { setStatus(res.error, "error"); }
+    fetchData();
+  } catch (err) {
+    setStatus("Error: " + (err && err.message ? err.message : err), "error");
+  }
+}
+
+function renderEarn() {
+  const el = $("earnList");
+  if (!state.rules.length) {
+    el.innerHTML = `<div class="empty"><h3>No rules</h3><div>Add rules in the Rules tab of the Sheet.</div></div>`;
+    return;
+  }
+  const byCat = {};
+  state.rules.forEach(r => {
+    if (!byCat[r.category]) byCat[r.category] = [];
+    byCat[r.category].push(r);
+  });
+  el.innerHTML = Object.keys(byCat).sort().map(cat => `
+    <div class="earn-cat">
+      <div class="ctitle">${escapeHtml(cat)}</div>
+      ${byCat[cat].map(r => `
+        <div class="earn-row">
+          <div>
+            <div class="ename">${escapeHtml(r.metric)}</div>
+            <div class="edesc">${escapeHtml(r.description)}</div>
+          </div>
+          <div class="eval ${r.bubbles < 0 ? "neg" : ""}">${r.bubbles > 0 ? "+" : ""}${r.bubbles}</div>
+        </div>
+      `).join("")}
+    </div>
+  `).join("");
+}
+
+function switchView(view) {
+  state.view = view;
+  ["balances", "rewards", "earn"].forEach(v => {
+    $("view-" + v).hidden = (v !== view);
+  });
+  document.querySelectorAll(".navbtn").forEach(b => {
+    b.classList.toggle("active", b.dataset.view === view);
+  });
+  render();
+}
+
+function render() {
+  renderSummary();
+  renderList();
+  renderRewards();
+  renderEarn();
+}
+
+/* ---------- Award dialog ---------- */
+
+function openAward(idx) {
+  state.activeIdx = idx;
+  const e = state.employees[idx];
+  $("aName").textContent = e.name;
+  $("aBal").textContent = e.balance.toLocaleString();
+
+  // Group rules by category
+  const byCat = {};
+  state.rules.forEach(r => {
+    if (!byCat[r.category]) byCat[r.category] = [];
+    byCat[r.category].push(r);
+  });
+  const cats = Object.keys(byCat).sort();
+
+  $("aRules").innerHTML = cats.map(cat => `
+    <div class="cat">
+      <div class="ctitle">${cat}</div>
+      <div class="rules">
+        ${byCat[cat].map(r => {
+          const ptsClass = r.bubbles < 0 ? "neg" : "";
+          const sign = r.bubbles > 0 ? "+" : "";
+          return `<button class="rule" data-metric="${escapeAttr(r.metric)}" data-bubbles="${r.bubbles}" title="${escapeAttr(r.description)}">
+            ${escapeHtml(r.metric)}<span class="pts ${ptsClass}">${sign}${r.bubbles}</span>
+          </button>`;
+        }).join("")}
+      </div>
+    </div>
+  `).join("");
+
+  $("aRules").querySelectorAll(".rule").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const metric = btn.dataset.metric;
+      const delta = parseFloat(btn.dataset.bubbles);
+      applyAward(state.activeIdx, metric, delta);
+    });
+  });
+
+  renderLog();
+  $("award").hidden = false;
+}
+
+async function applyAward(idx, metric, delta) {
+  if (session.role !== "manager") return;  // only managers can award
+  const e = state.employees[idx];
+
+  // Optimistic local update so the modal feels instant.
+  e.balance += delta;
+  e.recent = true;
+  state.log.unshift({ name: e.name, metric, delta, ts: new Date() });
+  $("aBal").textContent = e.balance.toLocaleString();
+  renderSummary();
+  renderList();
+  renderLog();
+
+  try {
+    const result = await apiCall("award", { pin: session.pin, name: e.name, metric: metric, amount: delta });
+    if (result.error) {
+      // Roll back the optimistic update on error.
+      e.balance -= delta;
+      state.log.shift();
+      $("aBal").textContent = e.balance.toLocaleString();
+      renderSummary();
+      renderList();
+      renderLog();
+      alert("Could not record award: " + result.error);
+      return;
+    }
+  } catch (err) {
+    e.balance -= delta;
+    state.log.shift();
+    $("aBal").textContent = e.balance.toLocaleString();
+    renderSummary();
+    renderList();
+    renderLog();
+    alert("Network error recording award: " + err.message);
+    return;
+  }
+
+  setTimeout(() => { e.recent = false; renderList(); }, 1500);
+}
+
+function renderLog() {
+  const e = state.employees[state.activeIdx];
+  if (!e) return;
+  const entries = state.log.filter(l => l.name === e.name);
+  const el = $("aLog");
+  if (!entries.length) {
+    el.innerHTML = `<div class="log-empty">No changes yet.</div>`;
+    return;
+  }
+  el.innerHTML = entries.map(l => `
+    <div class="log-entry">
+      <span>${escapeHtml(l.metric)} <span class="muted" style="font-size: 12px;">• ${l.ts.toLocaleTimeString()}</span></span>
+      <span class="ldelta ${l.delta > 0 ? "pos" : "neg"}">${l.delta > 0 ? "+" : ""}${l.delta}</span>
+    </div>
+  `).join("");
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function escapeAttr(s) { return escapeHtml(s); }
+
+/* ---------- Event wiring ---------- */
+
+/* ---------- Backend (Google Apps Script) ---------- */
+
+function setStatus(message, kind = "ok") {
+  const el = $("statusNote");
+  el.textContent = message;
+  el.style.background = kind === "error" ? "#fee2e2" : (kind === "warn" ? "#fff7ed" : "#ecfdf5");
+  el.style.borderColor = kind === "error" ? "#fecaca" : (kind === "warn" ? "#fed7aa" : "#bbf7d0");
+  el.style.color = kind === "error" ? "#7f1d1d" : (kind === "warn" ? "#7c2d12" : "#065f46");
+}
+
+async function fetchData() {
+  setStatus("Loading from Google Sheets…", "warn");
+  try {
+    const data = await apiCall("getData", { pin: session.pin });
+    if (data.error) throw new Error(data.error);
+    state.employees = normalizeBalances(data.balances || []);
+    state.rules     = normalizeRules(data.rules || []);
+    state.catalog   = normalizeCatalog(data.rewards || []);
+    state.myRequests = data.myRequests || [];
+    state.pending    = data.pending || [];
+    if (data.role) session.role = data.role;
+    if (data.name) session.name = data.name;
+    setStatus("Connected — data is live from your Google Sheet. Tap Refresh to re-sync.", "ok");
+    render();
+  } catch (err) {
+    setStatus("Couldn't load data (" + (err && err.message ? err.message : err) + ").", "error");
+  }
+}
+
+/* ---------- Session / login ---------- */
+
+const session = { pin: null, role: null, name: null };
+
+function updateIdentityUi() {
+  const label = session.role === "manager"
+    ? "Manager"
+    : (session.name || "Signed in");
+  $("identity").textContent = label;
+}
+
+async function doLogin(pin) {
+  const errEl = $("loginError");
+  errEl.style.display = "none";
+  pin = String(pin || "").trim();
+  if (!pin) {
+    errEl.textContent = "Enter your PIN.";
+    errEl.style.display = "block";
+    return;
+  }
+  try {
+    const res = await apiCall("login", { pin: pin });
+    if (res.error) {
+      errEl.textContent = res.error;
+      errEl.style.display = "block";
+      return;
+    }
+    session.pin = pin;
+    session.role = res.role;
+    session.name = res.name;
+    $("loginOverlay").hidden = true;
+    document.body.classList.remove("pre-auth");
+    updateIdentityUi();
+    switchView("balances");
+    fetchData();
+  } catch (err) {
+    errEl.textContent = "Error: " + (err && err.message ? err.message : err);
+    errEl.style.display = "block";
+  }
+}
+
+function logout() {
+  session.pin = null;
+  session.role = null;
+  session.name = null;
+  state.employees = [];
+  state.log = [];
+  $("loginPin").value = "";
+  $("loginOverlay").hidden = false;
+  document.body.classList.add("pre-auth");
+}
+
+/* ---------- Event wiring ---------- */
+
+$("loginForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  doLogin($("loginPin").value);
+});
+
+$("logoutBtn").addEventListener("click", logout);
+
+$("refreshBtn").addEventListener("click", fetchData);
+
+$("search").addEventListener("input", (e) => {
+  state.search = e.target.value;
+  renderList();
+});
+
+$("aClose").addEventListener("click", () => { $("award").hidden = true; });
+
+$("redeemConfirm").addEventListener("click", confirmRedeem);
+$("redeemCancel").addEventListener("click", () => { $("redeemModal").hidden = true; state.pendingRedeem = null; });
+$("redeemClose").addEventListener("click", () => { $("redeemModal").hidden = true; state.pendingRedeem = null; });
+
+// Bottom-nav tab switching.
+document.querySelectorAll(".navbtn").forEach(btn => {
+  btn.addEventListener("click", () => switchView(btn.dataset.view));
+});
+
+// Start at the login screen; focus the PIN field. No data loads until login.
+setTimeout(() => $("loginPin").focus(), 100);
+
+</script>
+</body>
+</html>
