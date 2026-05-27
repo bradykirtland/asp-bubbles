@@ -600,7 +600,7 @@
         </div>
       </div>
       <div id="teamPick">
-        <p class="muted" style="margin:0 0 12px; font-size:13px;">Tap a rule to award it to <strong>everyone</strong> at once.</p>
+        <p class="muted" style="margin:0 0 12px; font-size:13px;">These are your team-wide rules. Tap one to award it to <strong>everyone</strong> at once.</p>
         <div id="teamRules"></div>
       </div>
     </div>
@@ -1084,9 +1084,10 @@ function openAward(idx) {
 
 // Render rule buttons grouped by category into a target element; calls
 // onPick(metric, amount) when a rule is tapped.
-function renderRuleButtons(targetEl, onPick) {
+function renderRuleButtons(targetEl, onPick, rulesList) {
+  const rules = rulesList || state.rules;
   const byCat = {};
-  state.rules.forEach(r => {
+  rules.forEach(r => {
     if (!byCat[r.category]) byCat[r.category] = [];
     byCat[r.category].push(r);
   });
@@ -1113,14 +1114,20 @@ function openTeamAward() {
   state.pendingTeam = null;
   $("teamConfirm").hidden = true;
   $("teamPick").hidden = false;
-  renderRuleButtons($("teamRules"), (metric, amount) => {
-    state.pendingTeam = { metric: metric, amount: amount };
-    const sign = amount > 0 ? "+" : "";
-    $("teamConfirmText").innerHTML =
-      `Award <strong>${sign}${amount}</strong> (${escapeHtml(metric)}) to all <strong>${state.employees.length}</strong> employees?`;
-    $("teamPick").hidden = true;
-    $("teamConfirm").hidden = false;
-  });
+  // Only rules flagged as team-wide (description contains "whole team").
+  const teamRules = state.rules.filter(r => /whole team/i.test(r.description || ""));
+  if (!teamRules.length) {
+    $("teamRules").innerHTML = `<div class="empty"><h3>No team rules</h3><div>Mark a rule as team-wide by adding "whole team" to its description in the Rules tab.</div></div>`;
+  } else {
+    renderRuleButtons($("teamRules"), (metric, amount) => {
+      state.pendingTeam = { metric: metric, amount: amount };
+      const sign = amount > 0 ? "+" : "";
+      $("teamConfirmText").innerHTML =
+        `Award <strong>${sign}${amount}</strong> (${escapeHtml(metric)}) to all <strong>${state.employees.length}</strong> employees?`;
+      $("teamPick").hidden = true;
+      $("teamConfirm").hidden = false;
+    }, teamRules);
+  }
   $("teamAward").hidden = false;
 }
 
