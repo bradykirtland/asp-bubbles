@@ -578,7 +578,7 @@
     <div class="dbody">
       <div id="aRules"></div>
       <div class="log">
-        <div class="ltitle">Session activity</div>
+        <div class="ltitle">Recent activity</div>
         <div id="aLog"></div>
       </div>
     </div>
@@ -688,6 +688,7 @@ const state = {
   rules: [],        // [{ metric, bubbles, category, description }]
   catalog: [],      // [{ reward, cost, description }]
   log: [],          // [{ name, metric, delta, ts }]
+  allAwards: [],    // manager only: everyone's ledger (for per-employee history)
   myTransactions: [], // this user's award/redemption ledger
   myRequests: [],   // this user's redemption requests
   pending: [],      // manager: all pending requests
@@ -1078,7 +1079,7 @@ function openAward(idx) {
     });
   });
 
-  renderLog();
+  renderAwardHistory(e.name);
   $("award").hidden = false;
 }
 
@@ -1160,31 +1161,33 @@ async function applyAward(idx, metric, delta) {
   e.balance += delta;
   e.recent = true;
   state.log.unshift({ name: e.name, metric, delta, ts: new Date() });
+  const histEntry = { Timestamp: new Date().toISOString(), Name: e.name, Metric: metric, Amount: delta };
+  state.allAwards.unshift(histEntry);
   $("aBal").textContent = e.balance.toLocaleString();
   renderSummary();
   renderList();
-  renderLog();
+  renderAwardHistory(e.name);
+
+  const rollback = () => {
+    e.balance -= delta;
+    state.log.shift();
+    const j = state.allAwards.indexOf(histEntry);
+    if (j !== -1) state.allAwards.splice(j, 1);
+    $("aBal").textContent = e.balance.toLocaleString();
+    renderSummary();
+    renderList();
+    renderAwardHistory(e.name);
+  };
 
   try {
     const result = await apiCall("award", { pin: session.pin, name: e.name, metric: metric, amount: delta });
     if (result.error) {
-      // Roll back the optimistic update on error.
-      e.balance -= delta;
-      state.log.shift();
-      $("aBal").textContent = e.balance.toLocaleString();
-      renderSummary();
-      renderList();
-      renderLog();
+      rollback();
       alert("Could not record award: " + result.error);
       return;
     }
   } catch (err) {
-    e.balance -= delta;
-    state.log.shift();
-    $("aBal").textContent = e.balance.toLocaleString();
-    renderSummary();
-    renderList();
-    renderLog();
+    rollback();
     alert("Network error recording award: " + err.message);
     return;
   }
@@ -1192,21 +1195,22 @@ async function applyAward(idx, metric, delta) {
   setTimeout(() => { e.recent = false; renderList(); }, 1500);
 }
 
-function renderLog() {
-  const e = state.employees[state.activeIdx];
-  if (!e) return;
-  const entries = state.log.filter(l => l.name === e.name);
+// Shows the selected employee's recent transactions (manager history view).
+function renderAwardHistory(name) {
   const el = $("aLog");
+  const entries = state.allAwards.filter(a => a.Name === name).slice(0, 20);
   if (!entries.length) {
-    el.innerHTML = `<div class="log-empty">No changes yet.</div>`;
+    el.innerHTML = `<div class="log-empty">No activity yet.</div>`;
     return;
   }
-  el.innerHTML = entries.map(l => `
-    <div class="log-entry">
-      <span>${escapeHtml(l.metric)} <span class="muted" style="font-size: 12px;">• ${l.ts.toLocaleTimeString()}</span></span>
-      <span class="ldelta ${l.delta > 0 ? "pos" : "neg"}">${l.delta > 0 ? "+" : ""}${l.delta}</span>
-    </div>
-  `).join("");
+  el.innerHTML = entries.map(a => {
+    const amt = Number(a.Amount) || 0;
+    return `
+      <div class="log-entry">
+        <span>${escapeHtml(a.Metric || "Adjustment")} <span class="muted" style="font-size: 12px;">• ${fmtDate(a.Timestamp)}</span></span>
+        <span class="ldelta ${amt < 0 ? "neg" : "pos"}">${amt > 0 ? "+" : ""}${amt}</span>
+      </div>`;
+  }).join("");
 }
 
 function escapeHtml(s) {
@@ -1235,6 +1239,7 @@ async function fetchData() {
     state.rules     = normalizeRules(data.rules || []);
     state.catalog   = normalizeCatalog(data.rewards || []);
     state.myTransactions = data.myTransactions || [];
+    state.allAwards = data.allAwards || [];
     state.myRequests = data.myRequests || [];
     state.pending    = data.pending || [];
     if (data.role) session.role = data.role;
