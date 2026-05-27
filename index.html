@@ -11,6 +11,9 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #f7f7f5;
@@ -25,16 +28,29 @@
     --warn: #b45309;
     --danger: #b91c1c;
     --danger-soft: #fee2e2;
-    --radius: 10px;
-    --shadow: 0 1px 2px rgba(0,0,0,0.04);
+    --radius: 14px;
+    --shadow: 0 1px 2px rgba(30,58,138,0.05);
+    --shadow-card: 0 2px 10px rgba(30,58,138,0.06), 0 1px 2px rgba(30,58,138,0.04);
+    --shadow-pop: 0 12px 40px rgba(30,58,138,0.18);
   }
   * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
   html, body { margin: 0; padding: 0; }
   body {
-    font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font: 15px/1.55 "Outfit", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     background: var(--bg);
     color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
+  /* Motion + accessibility polish */
+  button, .emp-row, .reward, .navbtn, input, .req-row {
+    transition: background .18s ease, border-color .18s ease, transform .06s ease,
+                box-shadow .18s ease, filter .18s ease, color .18s ease;
+  }
+  button:active { transform: translateY(1px); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
   .wrap { max-width: 1100px; margin: 0 auto; padding: 32px 24px 80px; position: relative; z-index: 1; }
 
   /* Floating background bubbles */
@@ -66,7 +82,7 @@
     margin-bottom: 24px;
     flex-wrap: wrap;
   }
-  header.top h1 { font-size: 22px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+  header.top h1 { font-size: 25px; font-weight: 700; margin: 0; letter-spacing: -0.02em; }
   header.top .sub { color: var(--muted); font-size: 13px; }
 
   .panel {
@@ -112,7 +128,8 @@
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 14px 16px;
+    padding: 16px 18px;
+    box-shadow: var(--shadow-card);
   }
   .summary .label {
     font-size: 11px;
@@ -142,6 +159,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius);
     overflow: hidden;
+    box-shadow: var(--shadow-card);
   }
   .emp-row {
     display: grid;
@@ -220,7 +238,7 @@
     width: min(620px, 100%);
     max-height: 90vh;
     overflow-y: auto;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    box-shadow: var(--shadow-pop);
   }
   .overlay-card.narrow { width: min(420px, 100%); }
 
@@ -339,9 +357,11 @@
     position: fixed;
     left: 0; right: 0; bottom: 0;
     display: flex;
-    background: var(--surface);
+    background: rgba(247,247,245,0.82);
+    backdrop-filter: saturate(180%) blur(14px);
+    -webkit-backdrop-filter: saturate(180%) blur(14px);
     border-top: 1px solid var(--border);
-    box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
+    box-shadow: 0 -2px 16px rgba(30,58,138,0.06);
     z-index: 50;
     padding-bottom: env(safe-area-inset-bottom);
   }
@@ -368,12 +388,14 @@
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 14px 16px;
+    padding: 16px 18px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 12px;
+    box-shadow: var(--shadow-card);
   }
+  .reward:hover { box-shadow: var(--shadow-pop); border-color: #c9c9c2; }
   .reward .rname { font-weight: 600; font-size: 15px; }
   .reward .rdesc { color: var(--muted); font-size: 13px; margin-top: 2px; }
   .reward .rcost {
@@ -484,19 +506,22 @@
 
 <!-- ===== Login gate (shown until a valid PIN is entered) ===== -->
 <div class="overlay" id="loginOverlay">
-  <div class="overlay-card narrow">
-    <div class="dhead">
-      <div class="dname">Action Spa — Bubbles</div>
+  <div class="overlay-card narrow" style="overflow:hidden;">
+    <div style="text-align:center; padding:28px 22px 8px;">
+      <img src="icon-192.png" alt="ASP Bubbles logo" width="68" height="68"
+           style="border-radius:18px; box-shadow: var(--shadow-card);">
+      <div style="font-weight:700; font-size:20px; letter-spacing:-0.02em; margin-top:14px;">ASP Bubbles</div>
+      <div class="muted" style="font-size:13px; margin-top:2px;">Warehouse rewards</div>
     </div>
-    <form class="dbody" id="loginForm" style="display:flex; flex-direction:column; gap:12px;">
-      <p class="muted" style="margin:0; font-size:13px;">
-        Enter your 4-digit PIN to access the app.
+    <form class="dbody" id="loginForm" style="display:flex; flex-direction:column; gap:12px; padding-top:8px;">
+      <p class="muted" style="margin:0; font-size:13px; text-align:center;">
+        Enter your 4-digit PIN to sign in.
       </p>
       <input type="password" inputmode="numeric" autocomplete="off" id="loginPin"
-             placeholder="PIN" maxlength="6"
-             style="font-size:22px; padding:12px; letter-spacing:0.3em; text-align:center;">
-      <div id="loginError" style="color: var(--danger); font-size:13px; display:none;"></div>
-      <button type="submit" class="primary" style="padding:11px;">Sign in</button>
+             placeholder="••••" maxlength="6"
+             style="font-size:24px; padding:14px; letter-spacing:0.4em; text-align:center; font-family:inherit;">
+      <div id="loginError" style="color: var(--danger); font-size:13px; display:none; text-align:center;"></div>
+      <button type="submit" class="primary" style="padding:13px; font-size:15px; font-weight:600;">Sign in</button>
     </form>
   </div>
 </div>
@@ -505,7 +530,7 @@
 
   <header class="top">
     <div>
-      <h1>Action Spa — Warehouse Bubbles</h1>
+      <h1>Action Spa Parts — Warehouse Bubbles</h1>
       <div class="sub">Award bubbles for picker behaviors • spreadsheet-driven</div>
     </div>
   </header>
