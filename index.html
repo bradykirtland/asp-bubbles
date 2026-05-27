@@ -542,7 +542,7 @@
 
   <!-- ===== Activity tab ===== -->
   <div class="view" id="view-activity" hidden>
-    <h2 class="section">Your transactions</h2>
+    <h2 class="section" id="activityHeading">Your transactions</h2>
     <div id="activityList"></div>
   </div>
 
@@ -998,18 +998,49 @@ function fmtDate(ts) {
 
 function renderActivity() {
   const el = $("activityList");
+  const heading = $("activityHeading");
+
   if (session.role === "manager") {
-    el.innerHTML = `<div class="empty"><h3>No personal activity</h3><div>Transactions are shown for employee accounts. Log in with an employee PIN to see theirs.</div></div>`;
+    // Managers see a feed of ALL activity across the team.
+    heading.textContent = "All activity";
+    const items = state.allAwards;
+    if (!items.length) {
+      el.innerHTML = `<div class="empty"><h3>No activity yet</h3><div>Awards and redemptions across the team will show here.</div></div>`;
+      return;
+    }
+    el.innerHTML = items.slice(0, 100).map(a => {
+      const amt = Number(a.Amount) || 0;
+      const name = escapeHtml(a.Name || "");
+      const metric = String(a.Metric || "");
+      let label;
+      if (metric.indexOf("Redeemed:") === 0) {
+        label = name + " redeemed " + escapeHtml(metric.replace("Redeemed:", "").trim());
+      } else if (amt < 0) {
+        label = "Deducted " + Math.abs(amt) + " from " + name + (metric ? " — " + escapeHtml(metric) : "");
+      } else {
+        label = "Gave " + name + " " + amt + (metric ? " for " + escapeHtml(metric) : "");
+      }
+      return `
+        <div class="txn-row">
+          <div>
+            <div class="tlabel">${label}</div>
+            <div class="tdate">${fmtDate(a.Timestamp)}</div>
+          </div>
+          <div class="tamt ${amt < 0 ? "neg" : "pos"}">${amt > 0 ? "+" : ""}${amt.toLocaleString()}</div>
+        </div>`;
+    }).join("");
     return;
   }
+
+  // Workers see only their own transactions.
+  heading.textContent = "Your transactions";
   if (!state.myTransactions.length) {
     el.innerHTML = `<div class="empty"><h3>No transactions yet</h3><div>Bubbles you earn, lose, or redeem will show up here.</div></div>`;
     return;
   }
   el.innerHTML = state.myTransactions.map(t => {
     const amt = Number(t.Amount) || 0;
-    const isRedeem = String(t.Metric || "").indexOf("Redeemed:") === 0;
-    const label = isRedeem ? escapeHtml(t.Metric) : escapeHtml(t.Metric || "Adjustment");
+    const label = escapeHtml(t.Metric || "Adjustment");
     return `
       <div class="txn-row">
         <div>
