@@ -155,7 +155,15 @@
   }
   .emp-row:last-child { border-bottom: none; }
   .emp-row:hover { background: #faf9f6; }
-  .emp-row .name { font-weight: 500; font-size: 15px; }
+  .emp-row .name { font-weight: 500; font-size: 15px; display: flex; align-items: center; gap: 10px; }
+  .rank {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 22px; height: 22px; border-radius: 50%;
+    font-size: 12px; font-weight: 600;
+    background: #f0efeb; color: var(--muted);
+    flex-shrink: 0;
+  }
+  .rank.top { background: var(--accent-soft); color: var(--accent); }
   .emp-row .balance {
     font-size: 20px;
     font-weight: 600;
@@ -868,10 +876,14 @@ function renderList() {
       </div>`;
     return;
   }
-  const q = state.search.toLowerCase();
-  const filtered = state.employees
+  const sortedAll = state.employees
     .map((e, i) => ({ e, i }))
-    .filter(({ e }) => !q || e.name.toLowerCase().includes(q));
+    .sort((a, b) => b.e.balance - a.e.balance);  // leaderboard: most bubbles first
+  const rankByName = {};
+  sortedAll.forEach((o, idx) => { rankByName[o.e.name] = idx + 1; });
+
+  const q = state.search.toLowerCase();
+  const filtered = sortedAll.filter(({ e }) => !q || e.name.toLowerCase().includes(q));
 
   if (!filtered.length) {
     el.innerHTML = `<div class="empty"><h3>No matches</h3><div>Try a different search.</div></div>`;
@@ -881,6 +893,7 @@ function renderList() {
   const isManager = session.role === "manager";
 
   el.innerHTML = filtered.map(({ e, i }) => {
+    const rank = rankByName[e.name];
     const delta = e.balance - e.baseline;
     const dClass = delta > 0 ? "pos" : (delta < 0 ? "neg" : "");
     const dStr = delta === 0 ? "—" : (delta > 0 ? `+${delta}` : `${delta}`);
@@ -889,7 +902,7 @@ function renderList() {
       : `<div class="action"></div>`;
     return `
       <div class="emp-row ${e.recent ? "recent" : ""}" data-i="${i}" style="${isManager ? "" : "cursor:default;"}">
-        <div class="name">${e.name}</div>
+        <div class="name"><span class="rank ${rank <= 3 ? "top" : ""}">${rank}</span>${escapeHtml(e.name)}</div>
         <div class="balance">${e.balance.toLocaleString()}</div>
         <div class="delta ${dClass}">${dStr}</div>
         ${action}
