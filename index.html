@@ -302,6 +302,12 @@
   .log-entry .ldelta.pos { color: var(--good); }
   .log-entry .ldelta.neg { color: var(--danger); }
   .log-empty { color: var(--muted); font-size: 13px; font-style: italic; }
+  .undo-btn {
+    font-size: 11px; color: var(--muted);
+    background: none; border: 1px solid var(--border);
+    border-radius: 6px; padding: 2px 8px; cursor: pointer;
+  }
+  .undo-btn:hover { color: var(--danger); border-color: var(--danger); }
 
   .note {
     background: #fff7ed;
@@ -580,6 +586,22 @@
       <div class="log">
         <div class="ltitle">Recent activity</div>
         <div id="aLog"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="confirmModal" hidden style="z-index:120;">
+  <div class="overlay-card narrow">
+    <div class="dhead">
+      <div class="dname">Confirm</div>
+      <button class="dclose" id="confirmClose" aria-label="Close">&times;</button>
+    </div>
+    <div class="dbody">
+      <p id="confirmText" style="font-size:14px; margin:0 0 14px;"></p>
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button class="ghost" id="confirmNo">Cancel</button>
+        <button class="primary" id="confirmYes">Confirm</button>
       </div>
     </div>
   </div>
@@ -1243,9 +1265,11 @@ async function applyAward(idx, metric, delta) {
   setTimeout(() => { e.recent = false; renderList(); }, 1500);
 }
 
-// Shows the selected employee's recent transactions (manager history view).
+// Shows the selected employee's recent transactions (manager history view),
+// with an Undo button on regular awards/penalties.
 function renderAwardHistory(name) {
   const el = $("aLog");
+  const isManager = session.role === "manager";
   const entries = state.allAwards.filter(a => a.Name === name).slice(0, 20);
   if (!entries.length) {
     el.innerHTML = `<div class="log-empty">No activity yet.</div>`;
@@ -1253,12 +1277,72 @@ function renderAwardHistory(name) {
   }
   el.innerHTML = entries.map(a => {
     const amt = Number(a.Amount) || 0;
+    const m = String(a.Metric || "");
+    const canUndo = isManager && m.indexOf("Undo:") !== 0 && m.indexOf("Redeemed:") !== 0;
+    const undoBtn = canUndo
+      ? `<button class="undo-btn" data-metric="${escapeAttr(m)}" data-amount="${amt}">undo</button>`
+      : "";
     return `
       <div class="log-entry">
-        <span>${escapeHtml(a.Metric || "Adjustment")} <span class="muted" style="font-size: 12px;">• ${fmtDate(a.Timestamp)}</span></span>
-        <span class="ldelta ${amt < 0 ? "neg" : "pos"}">${amt > 0 ? "+" : ""}${amt}</span>
+        <span>${escapeHtml(m || "Adjustment")} <span class="muted" style="font-size: 12px;">• ${fmtDate(a.Timestamp)}</span></span>
+        <span style="display:flex; align-items:center; gap:8px;">
+          <span class="ldelta ${amt < 0 ? "neg" : "pos"}">${amt > 0 ? "+" : ""}${amt}</span>
+          ${undoBtn}
+        </span>
       </div>`;
   }).join("");
+
+  el.querySelectorAll(".undo-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const metric = btn.dataset.metric;
+      const amount = parseFloat(btn.dataset.amount);
+      const sign = amount > 0 ? "+" : "";
+      askConfirm("Undo " + sign + amount + " (" + metric + ") for " + name + "? This posts a reversing entry.",
+        () => undoAward(name, metric, amount));
+    });
+  });
+}
+
+// Simple reusable confirm dialog.
+let _confirmCb = null;
+function askConfirm(message, onYes) {
+  _confirmCb = onYes;
+  $("confirmText").textContent = message;
+  $("confirmModal").hidden = false;
+}
+
+async function undoAward(name, metric, amount) {
+  if (session.role !== "manager") return;
+  const e = state.employees.find(x => x.name === name);
+  if (!e) return;
+  const delta = -amount;
+
+  // Optimistic.
+  e.balance += delta;
+  const histEntry = { Timestamp: new Date().toISOString(), Name: name, Metric: "Undo: " + metric, Amount: delta };
+  state.allAwards.unshift(histEntry);
+  $("aBal").textContent = e.balance.toLocaleString();
+  renderSummary();
+  renderList();
+  renderAwardHistory(name);
+
+  const rollback = () => {
+    e.balance -= delta;
+    const j = state.allAwards.indexOf(histEntry);
+    if (j !== -1) state.allAwards.splice(j, 1);
+    $("aBal").textContent = e.balance.toLocaleString();
+    renderSummary();
+    renderList();
+    renderAwardHistory(name);
+  };
+
+  try {
+    const res = await apiCall("undo", { pin: session.pin, name: name, metric: metric, amount: amount });
+    if (res.error) { rollback(); alert("Could not undo: " + res.error); }
+  } catch (err) {
+    rollback();
+    alert("Network error undoing: " + (err && err.message ? err.message : err));
+  }
 }
 
 function escapeHtml(s) {
@@ -1372,6 +1456,14 @@ $("aClose").addEventListener("click", () => { $("award").hidden = true; });
 $("redeemConfirm").addEventListener("click", confirmRedeem);
 $("redeemCancel").addEventListener("click", () => { $("redeemModal").hidden = true; state.pendingRedeem = null; });
 $("redeemClose").addEventListener("click", () => { $("redeemModal").hidden = true; state.pendingRedeem = null; });
+
+$("confirmYes").addEventListener("click", () => {
+  $("confirmModal").hidden = true;
+  const cb = _confirmCb; _confirmCb = null;
+  if (cb) cb();
+});
+$("confirmNo").addEventListener("click", () => { $("confirmModal").hidden = true; _confirmCb = null; });
+$("confirmClose").addEventListener("click", () => { $("confirmModal").hidden = true; _confirmCb = null; });
 
 $("teamAwardBtn").addEventListener("click", openTeamAward);
 $("teamGo").addEventListener("click", confirmTeamAward);
