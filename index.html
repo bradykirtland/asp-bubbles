@@ -395,6 +395,18 @@
   .earn-row .eval { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--good); white-space: nowrap; }
   .earn-row .eval.neg { color: var(--danger); }
 
+  /* Transaction rows */
+  .txn-row {
+    display:flex; justify-content:space-between; align-items:center; gap:12px;
+    background: var(--surface); border:1px solid var(--border); border-radius:8px;
+    padding:12px 14px; margin-bottom:8px;
+  }
+  .txn-row .tlabel { font-weight:500; font-size:14px; }
+  .txn-row .tdate { color: var(--muted); font-size:12px; margin-top:2px; }
+  .txn-row .tamt { font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .txn-row .tamt.pos { color: var(--good); }
+  .txn-row .tamt.neg { color: var(--danger); }
+
   /* leave room for the fixed bottom nav */
   body { padding-bottom: 70px; }
 
@@ -492,6 +504,12 @@
     <div id="earnList"></div>
   </div>
 
+  <!-- ===== Activity tab ===== -->
+  <div class="view" id="view-activity" hidden>
+    <h2 class="section">Your transactions</h2>
+    <div id="activityList"></div>
+  </div>
+
 </div>
 
 <nav class="bottomnav">
@@ -500,6 +518,9 @@
   </button>
   <button class="navbtn" data-view="rewards">
     <span class="navicon">🎁</span><span>Rewards</span>
+  </button>
+  <button class="navbtn" data-view="activity">
+    <span class="navicon">🧾</span><span>Activity</span>
   </button>
   <button class="navbtn" data-view="earn">
     <span class="navicon">＋</span><span>How to earn</span>
@@ -609,6 +630,7 @@ const state = {
   rules: [],        // [{ metric, bubbles, category, description }]
   catalog: [],      // [{ reward, cost, description }]
   log: [],          // [{ name, metric, delta, ts }]
+  myTransactions: [], // this user's award/redemption ledger
   myRequests: [],   // this user's redemption requests
   pending: [],      // manager: all pending requests
   search: "",
@@ -906,9 +928,41 @@ function renderEarn() {
   `).join("");
 }
 
+function fmtDate(ts) {
+  const d = new Date(ts);
+  if (isNaN(d)) return "";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) +
+    " · " + d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+function renderActivity() {
+  const el = $("activityList");
+  if (session.role === "manager") {
+    el.innerHTML = `<div class="empty"><h3>No personal activity</h3><div>Transactions are shown for employee accounts. Log in with an employee PIN to see theirs.</div></div>`;
+    return;
+  }
+  if (!state.myTransactions.length) {
+    el.innerHTML = `<div class="empty"><h3>No transactions yet</h3><div>Bubbles you earn, lose, or redeem will show up here.</div></div>`;
+    return;
+  }
+  el.innerHTML = state.myTransactions.map(t => {
+    const amt = Number(t.Amount) || 0;
+    const isRedeem = String(t.Metric || "").indexOf("Redeemed:") === 0;
+    const label = isRedeem ? escapeHtml(t.Metric) : escapeHtml(t.Metric || "Adjustment");
+    return `
+      <div class="txn-row">
+        <div>
+          <div class="tlabel">${label}</div>
+          <div class="tdate">${fmtDate(t.Timestamp)}</div>
+        </div>
+        <div class="tamt ${amt < 0 ? "neg" : "pos"}">${amt > 0 ? "+" : ""}${amt.toLocaleString()}</div>
+      </div>`;
+  }).join("");
+}
+
 function switchView(view) {
   state.view = view;
-  ["balances", "rewards", "earn"].forEach(v => {
+  ["balances", "rewards", "activity", "earn"].forEach(v => {
     $("view-" + v).hidden = (v !== view);
   });
   document.querySelectorAll(".navbtn").forEach(b => {
@@ -921,6 +975,7 @@ function render() {
   renderSummary();
   renderList();
   renderRewards();
+  renderActivity();
   renderEarn();
 }
 
@@ -1049,6 +1104,7 @@ async function fetchData() {
     state.employees = normalizeBalances(data.balances || []);
     state.rules     = normalizeRules(data.rules || []);
     state.catalog   = normalizeCatalog(data.rewards || []);
+    state.myTransactions = data.myTransactions || [];
     state.myRequests = data.myRequests || [];
     state.pending    = data.pending || [];
     if (data.role) session.role = data.role;
