@@ -516,11 +516,9 @@
   </div>
 
   <section class="panel toolbar">
-    <input type="text" id="search" placeholder="Search employee…">
-    <span class="sep"></span>
     <button class="ghost" id="refreshBtn">Refresh</button>
     <span style="flex:1"></span>
-    <span class="muted" id="identity" style="font-size: 13px;"></span>
+    <span class="muted" id="identity" style="font-size: 14px;"></span>
     <button class="ghost" id="logoutBtn">Log out</button>
   </section>
 
@@ -1194,6 +1192,7 @@ function switchView(view) {
 }
 
 function render() {
+  updateIdentityUi();
   renderSummary();
   renderList();
   renderRewards();
@@ -1480,10 +1479,14 @@ async function fetchData() {
 const session = { pin: null, role: null, name: null };
 
 function updateIdentityUi() {
-  const label = session.role === "manager"
-    ? "Manager"
-    : (session.name || "Signed in");
-  $("identity").textContent = label;
+  const el = $("identity");
+  if (session.role === "manager") {
+    el.textContent = "Manager";
+    return;
+  }
+  const me = state.employees.find(e => e.name === session.name);
+  const balText = me ? `&nbsp;<strong style="color:var(--accent)">${me.balance.toLocaleString()}</strong>` : "";
+  el.innerHTML = escapeHtml(session.name || "Signed in") + balText;
 }
 
 async function doLogin(pin) {
@@ -1537,11 +1540,6 @@ $("loginForm").addEventListener("submit", (e) => {
 $("logoutBtn").addEventListener("click", logout);
 
 $("refreshBtn").addEventListener("click", fetchData);
-
-$("search").addEventListener("input", (e) => {
-  state.search = e.target.value;
-  renderList();
-});
 
 $("aClose").addEventListener("click", () => { $("award").hidden = true; });
 
