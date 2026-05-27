@@ -764,13 +764,20 @@ function normalizeRules(rows) {
 
 /* ---------- Rendering ---------- */
 
+function isToday(ts) {
+  const d = new Date(ts);
+  if (isNaN(d)) return false;
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() &&
+         d.getMonth() === now.getMonth() &&
+         d.getDate() === now.getDate();
+}
+
 function renderSummary() {
   const el = $("summary");
   if (!state.employees.length) { el.innerHTML = ""; return; }
   const totalBal = state.employees.reduce((s, e) => s + e.balance, 0);
-  const totalAwarded = state.log.reduce((s, l) => s + (l.delta > 0 ? l.delta : 0), 0);
-  const totalDeducted = state.log.reduce((s, l) => s + (l.delta < 0 ? l.delta : 0), 0);
-  el.innerHTML = `
+  let cards = `
     <div class="card">
       <div class="label">Employees</div>
       <div class="value">${state.employees.length}</div>
@@ -778,16 +785,26 @@ function renderSummary() {
     <div class="card">
       <div class="label">Total bubbles</div>
       <div class="value">${totalBal.toLocaleString()}</div>
-    </div>
-    <div class="card">
-      <div class="label">Awarded this session</div>
-      <div class="value" style="color: var(--good)">${totalAwarded > 0 ? "+" + totalAwarded : totalAwarded}</div>
-    </div>
-    <div class="card">
-      <div class="label">Deducted this session</div>
-      <div class="value" style="color: var(--danger)">${totalDeducted}</div>
-    </div>
-  `;
+    </div>`;
+
+  // Managers get today's running totals, computed from the ledger so they
+  // survive refreshes (no more resetting "session" counters).
+  if (session.role === "manager") {
+    const todays = state.allAwards.filter(a => isToday(a.Timestamp));
+    const awardedToday = todays.reduce((s, a) => { const v = Number(a.Amount) || 0; return v > 0 ? s + v : s; }, 0);
+    const deductedToday = todays.reduce((s, a) => { const v = Number(a.Amount) || 0; return v < 0 ? s + v : s; }, 0);
+    cards += `
+      <div class="card">
+        <div class="label">Awarded today</div>
+        <div class="value" style="color: var(--good)">${awardedToday > 0 ? "+" : ""}${awardedToday.toLocaleString()}</div>
+      </div>
+      <div class="card">
+        <div class="label">Deducted today</div>
+        <div class="value" style="color: var(--danger)">${deductedToday.toLocaleString()}</div>
+      </div>`;
+  }
+
+  el.innerHTML = cards;
 }
 
 function renderList() {
