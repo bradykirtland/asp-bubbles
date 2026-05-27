@@ -511,6 +511,9 @@
   <!-- ===== Balances tab ===== -->
   <div class="view" id="view-balances">
     <section class="summary" id="summary"></section>
+    <div id="teamBar" hidden style="margin: 2px 0 16px;">
+      <button class="primary" id="teamAwardBtn" style="padding:9px 14px;">＋ Award whole team</button>
+    </div>
     <h2 class="section">Employees</h2>
     <div class="emp-list" id="empList">
       <div class="empty"><h3>No data yet</h3><div>Loading…</div></div>
@@ -577,6 +580,28 @@
       <div class="log">
         <div class="ltitle">Session activity</div>
         <div id="aLog"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="teamAward" hidden>
+  <div class="overlay-card">
+    <div class="dhead">
+      <div class="dname">Award whole team</div>
+      <button class="dclose" id="teamClose" aria-label="Close">&times;</button>
+    </div>
+    <div class="dbody">
+      <div id="teamConfirm" hidden style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:14px; margin-bottom:12px;">
+        <div id="teamConfirmText" style="font-size:14px; margin-bottom:12px;"></div>
+        <div style="display:flex; gap:8px; justify-content:flex-end;">
+          <button class="ghost" id="teamCancel">Cancel</button>
+          <button class="primary" id="teamGo">Confirm</button>
+        </div>
+      </div>
+      <div id="teamPick">
+        <p class="muted" style="margin:0 0 12px; font-size:13px;">Tap a rule to award it to <strong>everyone</strong> at once.</p>
+        <div id="teamRules"></div>
       </div>
     </div>
   </div>
@@ -670,6 +695,7 @@ const state = {
   activeIdx: null,  // index of employee in dialog
   view: "balances", // balances | rewards | earn
   pendingRedeem: null, // reward awaiting confirm
+  pendingTeam: null,   // {metric, amount} awaiting team-award confirm
 };
 
 function normalizeCatalog(rows) {
@@ -765,6 +791,7 @@ function renderSummary() {
 
 function renderList() {
   const el = $("empList");
+  $("teamBar").hidden = (session.role !== "manager");
   if (!state.employees.length) {
     el.innerHTML = `<div class="empty">
         <h3>No data yet</h3>
@@ -1055,6 +1082,66 @@ function openAward(idx) {
   $("award").hidden = false;
 }
 
+// Render rule buttons grouped by category into a target element; calls
+// onPick(metric, amount) when a rule is tapped.
+function renderRuleButtons(targetEl, onPick) {
+  const byCat = {};
+  state.rules.forEach(r => {
+    if (!byCat[r.category]) byCat[r.category] = [];
+    byCat[r.category].push(r);
+  });
+  targetEl.innerHTML = Object.keys(byCat).sort().map(cat => `
+    <div class="cat">
+      <div class="ctitle">${escapeHtml(cat)}</div>
+      <div class="rules">
+        ${byCat[cat].map(r => {
+          const ptsClass = r.bubbles < 0 ? "neg" : "";
+          const sign = r.bubbles > 0 ? "+" : "";
+          return `<button class="rule" data-metric="${escapeAttr(r.metric)}" data-bubbles="${r.bubbles}" title="${escapeAttr(r.description)}">
+            ${escapeHtml(r.metric)}<span class="pts ${ptsClass}">${sign}${r.bubbles}</span>
+          </button>`;
+        }).join("")}
+      </div>
+    </div>
+  `).join("");
+  targetEl.querySelectorAll(".rule").forEach(btn => {
+    btn.addEventListener("click", () => onPick(btn.dataset.metric, parseFloat(btn.dataset.bubbles)));
+  });
+}
+
+function openTeamAward() {
+  state.pendingTeam = null;
+  $("teamConfirm").hidden = true;
+  $("teamPick").hidden = false;
+  renderRuleButtons($("teamRules"), (metric, amount) => {
+    state.pendingTeam = { metric: metric, amount: amount };
+    const sign = amount > 0 ? "+" : "";
+    $("teamConfirmText").innerHTML =
+      `Award <strong>${sign}${amount}</strong> (${escapeHtml(metric)}) to all <strong>${state.employees.length}</strong> employees?`;
+    $("teamPick").hidden = true;
+    $("teamConfirm").hidden = false;
+  });
+  $("teamAward").hidden = false;
+}
+
+async function confirmTeamAward() {
+  if (!state.pendingTeam) return;
+  const { metric, amount } = state.pendingTeam;
+  $("teamGo").disabled = true;
+  try {
+    const res = await apiCall("awardTeam", { pin: session.pin, metric: metric, amount: amount });
+    $("teamGo").disabled = false;
+    if (res.error) { setStatus("Team award failed: " + res.error, "error"); return; }
+    $("teamAward").hidden = true;
+    state.pendingTeam = null;
+    setStatus("Awarded " + (amount > 0 ? "+" : "") + amount + " to " + (res.count || "all") + " employees.", "ok");
+    fetchData();
+  } catch (err) {
+    $("teamGo").disabled = false;
+    setStatus("Team award error: " + (err && err.message ? err.message : err), "error");
+  }
+}
+
 async function applyAward(idx, metric, delta) {
   if (session.role !== "manager") return;  // only managers can award
   const e = state.employees[idx];
@@ -1222,6 +1309,11 @@ $("aClose").addEventListener("click", () => { $("award").hidden = true; });
 $("redeemConfirm").addEventListener("click", confirmRedeem);
 $("redeemCancel").addEventListener("click", () => { $("redeemModal").hidden = true; state.pendingRedeem = null; });
 $("redeemClose").addEventListener("click", () => { $("redeemModal").hidden = true; state.pendingRedeem = null; });
+
+$("teamAwardBtn").addEventListener("click", openTeamAward);
+$("teamGo").addEventListener("click", confirmTeamAward);
+$("teamCancel").addEventListener("click", () => { $("teamConfirm").hidden = true; $("teamPick").hidden = false; state.pendingTeam = null; });
+$("teamClose").addEventListener("click", () => { $("teamAward").hidden = true; state.pendingTeam = null; });
 
 // Bottom-nav tab switching.
 document.querySelectorAll(".navbtn").forEach(btn => {
