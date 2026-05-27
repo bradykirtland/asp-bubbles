@@ -433,6 +433,8 @@
   .txn-row .tamt { font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; }
   .txn-row .tamt.pos { color: var(--good); }
   .txn-row .tamt.neg { color: var(--danger); }
+  .txn-row.cancelled { opacity: 0.45; }
+  .txn-row.cancelled .tamt { text-decoration: line-through; }
 
   /* leave room for the fixed bottom nav */
   body { padding-bottom: 70px; }
@@ -1069,10 +1071,26 @@ function renderActivity() {
       el.innerHTML = `<div class="empty"><h3>No activity yet</h3><div>Awards and redemptions across the team will show here.</div></div>`;
       return;
     }
+    // Flag reversal entries and their matched originals so we can grey them out.
+    const cancel = {};
+    items.forEach(a => {
+      const m = String(a.Metric || "");
+      if (m.indexOf("Undo:") === 0) {
+        const key = a.Name + "|" + m.slice(5).trim() + "|" + (-(Number(a.Amount) || 0));
+        cancel[key] = (cancel[key] || 0) + 1;
+      }
+    });
     el.innerHTML = items.slice(0, 100).map(a => {
       const amt = Number(a.Amount) || 0;
       const name = escapeHtml(a.Name || "");
       const metric = String(a.Metric || "");
+      let cancelled = false;
+      if (metric.indexOf("Undo:") === 0) {
+        cancelled = true;
+      } else {
+        const key = a.Name + "|" + metric + "|" + amt;
+        if (cancel[key] > 0) { cancel[key]--; cancelled = true; }
+      }
       let label;
       if (metric.indexOf("Redeemed:") === 0) {
         label = name + " redeemed " + escapeHtml(metric.replace("Redeemed:", "").trim());
@@ -1081,10 +1099,11 @@ function renderActivity() {
       } else {
         label = "Gave " + name + " " + amt + (metric ? " for " + escapeHtml(metric) : "");
       }
+      const tag = cancelled ? ` <span class="muted" style="font-size:11px;">(reversed)</span>` : "";
       return `
-        <div class="txn-row">
+        <div class="txn-row${cancelled ? " cancelled" : ""}">
           <div>
-            <div class="tlabel">${label}</div>
+            <div class="tlabel">${label}${tag}</div>
             <div class="tdate">${fmtDate(a.Timestamp)}</div>
           </div>
           <div class="tamt ${amt < 0 ? "neg" : "pos"}">${amt > 0 ? "+" : ""}${amt.toLocaleString()}</div>
