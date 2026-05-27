@@ -813,8 +813,30 @@ function renderSummary() {
   // survive refreshes (no more resetting "session" counters).
   if (session.role === "manager") {
     const todays = state.allAwards.filter(a => isToday(a.Timestamp));
-    const awardedToday = todays.reduce((s, a) => { const v = Number(a.Amount) || 0; return v > 0 ? s + v : s; }, 0);
-    const deductedToday = todays.reduce((s, a) => { const v = Number(a.Amount) || 0; return v < 0 ? s + v : s; }, 0);
+
+    // An "Undo: X" reversal cancels its matching original award so neither
+    // shows in the today totals (award-then-undo nets to zero).
+    const cancel = {};
+    todays.forEach(a => {
+      const m = String(a.Metric || "");
+      if (m.indexOf("Undo:") === 0) {
+        const origMetric = m.slice(5).trim();
+        const origAmount = -(Number(a.Amount) || 0);
+        const key = a.Name + "|" + origMetric + "|" + origAmount;
+        cancel[key] = (cancel[key] || 0) + 1;
+      }
+    });
+
+    let awardedToday = 0, deductedToday = 0;
+    todays.forEach(a => {
+      const m = String(a.Metric || "");
+      if (m.indexOf("Undo:") === 0) return;          // skip reversal entries
+      const v = Number(a.Amount) || 0;
+      const key = a.Name + "|" + m + "|" + v;
+      if (cancel[key] > 0) { cancel[key]--; return; } // skip an original that was undone
+      if (v > 0) awardedToday += v; else deductedToday += v;
+    });
+
     cards += `
       <div class="card">
         <div class="label">Awarded today</div>
