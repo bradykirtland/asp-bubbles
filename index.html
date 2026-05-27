@@ -534,6 +534,10 @@
       <h2 class="section">Pending requests</h2>
       <div id="pendingList"></div>
     </div>
+    <div id="fulfillSection" hidden>
+      <h2 class="section">Ready to hand out</h2>
+      <div id="fulfillList"></div>
+    </div>
     <h2 class="section">Rewards you can redeem</h2>
     <div class="reward-list" id="rewardList"></div>
     <div id="myRequestsSection" hidden>
@@ -716,6 +720,7 @@ const state = {
   myTransactions: [], // this user's award/redemption ledger
   myRequests: [],   // this user's redemption requests
   pending: [],      // manager: all pending requests
+  approved: [],     // manager: approved, awaiting hand-out
   search: "",
   activeIdx: null,  // index of employee in dialog
   view: "balances", // balances | rewards | earn
@@ -929,6 +934,28 @@ function renderRewards() {
     pendSec.hidden = true;
   }
 
+  // --- Manager: approved, ready to hand out ---
+  const fulSec = $("fulfillSection");
+  if (isManager && state.approved.length) {
+    fulSec.hidden = false;
+    $("fulfillList").innerHTML = state.approved.map(p => `
+      <div class="req-row">
+        <div>
+          <strong>${escapeHtml(p.Name)}</strong> → ${escapeHtml(p.Reward)}
+          <span class="muted">(${Number(p.Cost).toLocaleString()})</span>
+        </div>
+        <div class="req-actions">
+          <button class="approve" data-row="${p._row}">Mark given</button>
+        </div>
+      </div>
+    `).join("");
+    $("fulfillList").querySelectorAll("button").forEach(b => {
+      b.addEventListener("click", () => fulfillRequest(b.dataset.row));
+    });
+  } else {
+    fulSec.hidden = true;
+  }
+
   // --- Reward cards ---
   const el = $("rewardList");
   if (!state.catalog.length) {
@@ -968,7 +995,7 @@ function renderRewards() {
     mySec.hidden = false;
     $("myRequestsList").innerHTML = state.myRequests.map(r => {
       const status = String(r.Status || "pending").trim();
-      const chip = status.startsWith("approved") ? "approved"
+      const chip = (status.startsWith("approved") || status === "fulfilled") ? "approved"
                  : status.startsWith("denied") ? "denied" : "pending";
       return `
         <div class="req-row">
@@ -1018,6 +1045,16 @@ async function confirmRedeem() {
 async function resolveRequest(row, approve) {
   try {
     const res = await apiCall("resolve", { pin: session.pin, row: row, approve: approve });
+    if (res.error) { setStatus(res.error, "error"); }
+    fetchData();
+  } catch (err) {
+    setStatus("Error: " + (err && err.message ? err.message : err), "error");
+  }
+}
+
+async function fulfillRequest(row) {
+  try {
+    const res = await apiCall("fulfill", { pin: session.pin, row: row });
     if (res.error) { setStatus(res.error, "error"); }
     fetchData();
   } catch (err) {
@@ -1415,6 +1452,7 @@ async function fetchData() {
     state.allAwards = data.allAwards || [];
     state.myRequests = data.myRequests || [];
     state.pending    = data.pending || [];
+    state.approved   = data.approved || [];
     if (data.role) session.role = data.role;
     if (data.name) session.name = data.name;
     setStatus("Connected — data is live from your Google Sheet. Tap Refresh to re-sync.", "ok");
