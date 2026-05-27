@@ -1134,19 +1134,22 @@ function openTeamAward() {
 async function confirmTeamAward() {
   if (!state.pendingTeam) return;
   const { metric, amount } = state.pendingTeam;
-  $("teamGo").disabled = true;
+
+  // Optimistic: bump everyone locally and close immediately so it feels instant.
+  state.employees.forEach(e => { e.balance += amount; });
+  $("teamAward").hidden = true;
+  state.pendingTeam = null;
+  renderSummary();
+  renderList();
+  setStatus("Awarded " + (amount > 0 ? "+" : "") + amount + " to the whole team.", "ok");
+
   try {
     const res = await apiCall("awardTeam", { pin: session.pin, metric: metric, amount: amount });
-    $("teamGo").disabled = false;
-    if (res.error) { setStatus("Team award failed: " + res.error, "error"); return; }
-    $("teamAward").hidden = true;
-    state.pendingTeam = null;
-    setStatus("Awarded " + (amount > 0 ? "+" : "") + amount + " to " + (res.count || "all") + " employees.", "ok");
-    fetchData();
+    if (res.error) setStatus("Team award failed: " + res.error, "error");
   } catch (err) {
-    $("teamGo").disabled = false;
-    setStatus("Team award error: " + (err && err.message ? err.message : err), "error");
+    setStatus("Sync issue — refreshing…", "warn");
   }
+  fetchData();  // reconcile with the server
 }
 
 async function applyAward(idx, metric, delta) {
