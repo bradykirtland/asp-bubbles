@@ -687,8 +687,8 @@
 
 /* ---------- Backend bridge (Apps Script JSON API) ---------- */
 
-// PASTE YOUR APPS SCRIPT WEB-APP URL HERE (ends in /exec):
-const API_URL = "https://script.google.com/macros/s/AKfycbwD3Jch_kSZW7_z3c6weGaY74mWsowAABOrqnxFY_AGPEBmDQ7vBt0zM-LqNk47YKFX/exec";
+// Railway-hosted Node.js API backed by Postgres.
+const API_URL = "https://asp-bubbles-api-production.up.railway.app/";
 
 // POST a JSON action to the Apps Script backend. text/plain avoids a CORS
 // preflight (which Apps Script can't answer). Returns the parsed JSON object.
